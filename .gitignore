@@ -1,0 +1,3 @@
+# Large per-release files go to GitHub Releases, not into git.
+/release-assets/
+/.ffmpeg-build/
