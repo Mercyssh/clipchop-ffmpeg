@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a Clippy ffmpeg build: LGPL-only, and every component Clippy needs.
+"""Check a ClipChop ffmpeg build: LGPL-only, and every component ClipChop needs.
 
     python scripts/ffmpeg/verify.py <ffmpeg> <ffprobe> [--platform windows|macos|linux]
 
@@ -107,7 +107,7 @@ def main():
         for e in errors:
             print("  -", e)
         sys.exit(1)
-    print(f"OK: LGPL build with every component Clippy needs ({a.platform})")
+    print(f"OK: LGPL build with every component ClipChop needs ({a.platform})")
 
 
 if __name__ == "__main__":

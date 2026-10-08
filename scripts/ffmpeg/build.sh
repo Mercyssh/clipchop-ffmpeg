@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Clippy's minimal LGPL ffmpeg + ffprobe for the platform this runs on.
+# Build ClipChop's minimal LGPL ffmpeg + ffprobe for the platform this runs on.
 #
 #   Windows : run in an MSYS2 "MINGW64" shell
 #   macOS   : Apple Silicon, Xcode Command Line Tools
@@ -33,7 +33,7 @@ case "$(uname -s)" in
   Darwin)
     PLAT=macos; TRIPLE=aarch64-apple-darwin; EXE=
     if [ "$(uname -m)" != "arm64" ]; then
-      echo "Clippy targets Apple Silicon only — build on an arm64 Mac." >&2; exit 1
+      echo "ClipChop targets Apple Silicon only — build on an arm64 Mac." >&2; exit 1
     fi ;;
   Linux)
     PLAT=linux; TRIPLE=x86_64-unknown-linux-gnu; EXE= ;;
