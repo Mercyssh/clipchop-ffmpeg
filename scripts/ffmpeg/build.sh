@@ -68,8 +68,30 @@ install_deps() {
       $SUDO apt-get install -y build-essential git curl xz-utils nasm pkg-config \
         cmake zlib1g-dev python3-pip
       # distro meson/ninja can be too old for libdrm / libva
-      $SUDO pip3 install "meson>=1.3" ninja ;;
+      $SUDO pip3 install "meson>=1.3" ninja
+      # Ubuntu 20.04's nasm (2.14) can't assemble ffmpeg 9's x86 code
+      install_nasm ;;
   esac
+}
+
+NASM_VERSION="2.16.03"
+NASM_SHA256="1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148"
+install_nasm() {
+  local have; have="$(nasm -v 2>/dev/null | awk '{print $3}')"
+  if [ -n "$have" ] && [ "$(printf '%s\n' 2.16 "$have" | sort -V | head -1)" = 2.16 ]; then
+    return
+  fi
+  log "nasm $NASM_VERSION (have: ${have:-none})"
+  local tmp; tmp="$(mktemp -d)"
+  curl -fL -o "$tmp/nasm.tar.xz" \
+    "https://www.nasm.us/pub/nasm/releasebuilds/$NASM_VERSION/nasm-$NASM_VERSION.tar.xz"
+  [ "$(sha256sum "$tmp/nasm.tar.xz" | cut -d' ' -f1)" = "$NASM_SHA256" ] \
+    || { echo "nasm tarball checksum mismatch" >&2; exit 1; }
+  tar -xJf "$tmp/nasm.tar.xz" -C "$tmp"
+  ( cd "$tmp/nasm-$NASM_VERSION" && ./configure --prefix=/usr/local && make -j"$(nproc)" \
+    && $SUDO make install )
+  rm -rf "$tmp"
+  hash -r
 }
 [ "${1:-}" = "--install-deps" ] && install_deps
 
@@ -144,6 +166,14 @@ if [ "$PLAT" = linux ]; then
   meson_static "$SRC/libva" -Dwith_x11=no -Dwith_glx=no -Dwith_wayland=no \
     -Denable_docs=false \
     -Ddriverdir=/usr/lib/x86_64-linux-gnu/dri:/usr/lib64/dri:/usr/lib/dri:/usr/local/lib/dri
+  # libva's meson only builds shared libraries. Archive its objects instead, so
+  # ffmpeg doesn't depend on the user's libva version (or on libva at all).
+  for lib in va va-drm; do
+    ar rcs "$PREFIX/lib/lib$lib.a" "$SRC/libva/_build/va/lib$lib.so."*.p/*.o
+  done
+  rm -f "$PREFIX"/lib/libva*.so*
+  echo "Libs.private: -ldl" >> "$PREFIX/lib/pkgconfig/libva.pc"
+  echo "Requires.private: libdrm" >> "$PREFIX/lib/pkgconfig/libva-drm.pc"
 fi
 
 # ---- ffmpeg ----------------------------------------------------------------
