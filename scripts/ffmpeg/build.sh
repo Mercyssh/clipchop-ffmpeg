@@ -34,7 +34,9 @@ case "$(uname -s)" in
     PLAT=macos; TRIPLE=aarch64-apple-darwin; EXE=
     if [ "$(uname -m)" != "arm64" ]; then
       echo "ClipChop targets Apple Silicon only — build on an arm64 Mac." >&2; exit 1
-    fi ;;
+    fi
+    # Run on every Apple Silicon Mac (macOS 11+), not just the build machine's version.
+    export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}" ;;
   Linux)
     PLAT=linux; TRIPLE=x86_64-unknown-linux-gnu; EXE= ;;
   *) echo "unsupported build OS: $(uname -s)" >&2; exit 1 ;;

@@ -27,6 +27,7 @@ contains everything needed to rebuild that version:
 | `build.sh`, `components.env` | The build script and the pinned versions + component list it used |
 | `configure-<platform>.txt` | The exact `./configure` line for each platform |
 | `SHA256SUMS.<platform>` | Checksums of the `ffmpeg` / `ffprobe` programs shipped with ClipChop |
+| `ffmpeg-<platform>`, `ffprobe-<platform>` | The programs themselves (macOS) |
 
 | ClipChop | FFmpeg | Platforms |
 |---|---|---|
@@ -67,6 +68,12 @@ bash scripts/ffmpeg/build.sh --install-deps
 ```bash
 bash scripts/ffmpeg/build.sh --install-deps
 ```
+
+The macOS build attached to each release is made by this repository's
+[`macOS ffmpeg`](.github/workflows/macos.yml) workflow, which also attaches the
+`ffmpeg` / `ffprobe` programs themselves. It runs on demand (Actions tab, or
+`gh workflow run macos.yml -f tag=<release tag>`) and adds the build to an
+existing release. The programs run on macOS 11 or later.
 
 **Linux (x86_64):** build in an old-glibc container, so the result runs on
 most distributions:
