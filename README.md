@@ -27,11 +27,12 @@ contains everything needed to rebuild that version:
 | `build.sh`, `components.env` | The build script and the pinned versions + component list it used |
 | `configure-<platform>.txt` | The exact `./configure` line for each platform |
 | `SHA256SUMS.<platform>` | Checksums of the `ffmpeg` / `ffprobe` programs shipped with ClipChop |
-| `ffmpeg-<platform>`, `ffprobe-<platform>` | The programs themselves (macOS) |
+| `ffmpeg-<platform>`, `ffprobe-<platform>` | The programs themselves (macOS, Linux) |
 
 | ClipChop | FFmpeg | Platforms |
 |---|---|---|
 | 1.0.0 | 9.0.2 | Windows x86_64, Linux x86_64 |
+| 1.0.1 | 9.0.2 | Windows x86_64, macOS Apple Silicon, Linux x86_64 |
 
 ## What's in the build
 
@@ -82,6 +83,9 @@ most distributions:
 docker run --rm -v "$PWD:/src" -w /src ubuntu:20.04 \
   bash -c "apt-get update && apt-get install -y sudo && bash scripts/ffmpeg/build.sh --install-deps"
 ```
+
+The Linux build attached to each release is made by this repository's
+[`Linux ffmpeg`](.github/workflows/linux.yml) workflow the same way (`gh workflow run linux.yml -f tag=<release tag>`).
 
 `--install-deps` installs the build tools with the platform's package manager
 (pacman, brew or apt). Leave it off once they're installed.

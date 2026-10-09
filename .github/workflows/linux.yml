@@ -1,0 +1,104 @@
+# Builds the Linux (x86_64) ffmpeg + ffprobe and adds them to an existing
+# release: the programs, their checksums, and the exact build files.
+# Run it from the Actions tab or: gh workflow run linux.yml -f tag=v1.0.0
+name: Linux ffmpeg
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release to add the Linux build to (e.g. v1.0.0). It must already exist.
+        required: true
+      replace:
+        description: Rebuild even if the release already has a Linux build (its checksums will change)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-ffmpeg-${{ inputs.tag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      TRIPLE: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the release
+        id: check
+        run: |
+          assets=$(gh release view "$TAG" --json assets -q '.assets[].name') \
+            || { echo "::error::Release $TAG doesn't exist. Create it first."; exit 1; }
+          if grep -qx "SHA256SUMS.$TRIPLE" <<<"$assets" && [ "${{ inputs.replace }}" != "true" ]; then
+            echo "::notice::$TAG already has a Linux build; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The release's components.env pins what every platform's build contains.
+          gh release download "$TAG" -p components.env -D "$RUNNER_TEMP/release"
+          if ! diff -u "$RUNNER_TEMP/release/components.env" scripts/ffmpeg/components.env; then
+            echo "::error::scripts/ffmpeg/components.env differs from the one in $TAG. Build from the commit that matches it, or make a new release."
+            exit 1
+          fi
+
+      # Ubuntu 20.04 (glibc 2.31), so the programs run on most distributions.
+      - name: Build (Ubuntu 20.04 container)
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e DEBIAN_FRONTEND=noninteractive -e TZ=Etc/UTC ubuntu:20.04 \
+            bash -c "apt-get update && apt-get install -y sudo && bash scripts/ffmpeg/build.sh --install-deps"
+          sudo chown -R "$(id -u):$(id -g)" .ffmpeg-build
+
+      - name: Check it only needs glibc and zlib
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          for b in ffmpeg ffprobe; do
+            f=".ffmpeg-build/dist/$b-$TRIPLE"
+            ldd "$f"
+            if ldd "$f" | awk '{print $1}' | grep -vE '^(linux-vdso\.so|/lib64/ld-linux-x86-64\.so|lib(c|m|dl|rt|pthread|z)\.so)'; then
+              echo "::error::$b links a library other than glibc and zlib"; exit 1
+            fi
+          done
+
+      - name: Add to the release
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          d=.ffmpeg-build/dist; s="$d/source"; up="$RUNNER_TEMP/upload"; mkdir -p "$up"
+          cp "$d/ffmpeg-$TRIPLE" "$d/ffprobe-$TRIPLE" "$d/SHA256SUMS.$TRIPLE" "$s/configure-$TRIPLE.txt" "$up/"
+          cp "$s/build.sh" "$up/build-$TRIPLE.sh"
+          cp "$s/components.env" "$up/components-$TRIPLE.env"
+          tarball=$(cd "$s" && ls ffmpeg-*.tar.xz)
+          gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx "$tarball" || cp "$s/$tarball" "$up/"
+          gh release upload "$TAG" "$up"/* --clobber
+
+          # Put the Linux checksums in the release description (replacing an earlier Linux section).
+          gh release view "$TAG" --json body -q .body > "$RUNNER_TEMP/body.md"
+          python3 - "$RUNNER_TEMP/body.md" "$d/SHA256SUMS.$TRIPLE" <<'EOF'
+          import re, sys
+          body_path, sums_path = sys.argv[1], sys.argv[2]
+          body = open(body_path, encoding="utf-8").read().replace("\r\n", "\n")
+          body = re.sub(r"\n*<!-- linux -->.*?<!-- /linux -->\n*", "\n\n", body, flags=re.S).rstrip()
+          body = re.sub(r"\s*·\s*Linux x86_64 will be added later", "", body)
+          body = re.sub(r"^(- \*\*Platforms in this release:\*\*(?!.*Linux).*)$", r"\1, Linux x86_64", body, flags=re.M)
+          sums = "\n".join("    " + l for l in open(sums_path).read().split("\n") if l.strip())
+          body += ("\n\n<!-- linux -->\n## Linux (x86_64)\n\n"
+                   "Built by the `Linux ffmpeg` workflow in this repository, in an Ubuntu 20.04 container "
+                   "(glibc 2.31), so the programs run on most distributions. Build files: "
+                   "`build-x86_64-unknown-linux-gnu.sh`, `components-x86_64-unknown-linux-gnu.env`, "
+                   "`configure-x86_64-unknown-linux-gnu.txt`.\n\n"
+                   "Checksums (SHA-256) of the `ffmpeg` / `ffprobe` shipped with ClipChop for Linux:\n\n"
+                   + sums + "\n\nTo rebuild it:\n\n"
+                   "    docker run --rm -v \"$PWD:/src\" -w /src ubuntu:20.04 \\\n"
+                   "      bash -c \"apt-get update && apt-get install -y sudo && bash scripts/ffmpeg/build.sh --install-deps\"\n"
+                   "<!-- /linux -->\n")
+          open(body_path, "w", encoding="utf-8").write(body)
+          EOF
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/body.md"
+          cat "$d/SHA256SUMS.$TRIPLE"
