@@ -30,7 +30,7 @@ contains everything needed to rebuild that version:
 
 | ClipChop | FFmpeg | Platforms |
 |---|---|---|
-| 1.0.0 | 9.0.2 | Windows x86_64 |
+| 1.0.0 | 9.0.2 | Windows x86_64, Linux x86_64 |
 
 ## What's in the build
 
