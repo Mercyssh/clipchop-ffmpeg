@@ -107,9 +107,10 @@ Either:
   | `CLIPCHOP_FFPROBE` | full path to your `ffprobe` |
 
 - **Or replace the bundled programs** in ClipChop's install folder:
-  - **Windows:** `ffmpeg.exe` and `ffprobe.exe` next to `ClipChop.exe`
-  - **macOS:** `ClipChop.app/Contents/MacOS/`
-  - **Linux:** next to the ClipChop executable
+  - **Windows:** `clipchop-ffmpeg.exe` and `clipchop-ffprobe.exe` next to `ClipChop.exe`
+  - **macOS:** `clipchop-ffmpeg` and `clipchop-ffprobe` in `ClipChop.app/Contents/MacOS/`
+  - **Linux:** `clipchop-ffmpeg` and `clipchop-ffprobe` next to the ClipChop executable
+    (`/usr/bin` for the .deb / .rpm)
 
 Your build needs at least the components listed in
 [`components.env`](scripts/ffmpeg/components.env); run `verify.py` on it to
